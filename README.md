@@ -1,1 +1,1 @@
-# CICD-Ecommerce-Store
+# CI-CD-Store-Microservice-Azure
