@@ -60,7 +60,7 @@ stages:
     - script: |
         git clone https://$(GITHUB_TOKEN)@github.com/PaulaTrujillo27/kubernetes-files-ecommerce.git
         cd kubernetes-files-ecommerce
-        sed -i 's/image: myldpacontainerregistry.azurecr.io\/ecommerce-store:.*/image: myldpacontainerregistry.azurecr.io\/ecommerce-admin:$(tag)/' ecommerce-general.yaml
+        sed -i 's/image: myldpacontainerregistry.azurecr.io\/ecommerce-store:.*/image: myldpacontainerregistry.azurecr.io\/ecommerce-store:$(tag)/' ecommerce-general.yaml
       displayName: Clone repository and update YAML
 
     - task: AzureCLI@2
