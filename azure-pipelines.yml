@@ -1,0 +1,74 @@
+# Deploy to Azure Kubernetes Service
+# Build and push image to Azure Container Registry; Deploy to Azure Kubernetes Service
+# https://docs.microsoft.com/azure/devops/pipelines/languages/docker
+
+trigger:
+- main
+
+resources:
+- repo: self
+
+variables:
+
+  # Container registry service connection established during pipeline creation
+  dockerRegistryServiceConnection: '65eb9d3c-ff2e-4878-9885-cff336e784b0'
+  imageRepository: 'ecommerce-store'
+  containerRegistry: 'myldpacontainerregistry.azurecr.io'
+  dockerfilePath: '**/Dockerfile'
+  tag: '$(Build.BuildId)'
+  imagePullSecret: 'myldpacontainerregistry36967c85-auth'
+
+
+stages:
+- stage: Build
+  displayName: Build stage
+  jobs:
+  - job: Build
+    displayName: Build
+    pool:
+      name: linuxagent  # Cambiar a 'linuxagent' o el nombre correcto de tu pool
+    steps:
+    - task: Docker@2
+      displayName: Build and push an image to container registry
+      inputs:
+        command: buildAndPush
+        repository: $(imageRepository)
+        dockerfile: $(dockerfilePath)
+        containerRegistry: $(dockerRegistryServiceConnection)
+        tags: |
+          $(tag)
+
+    - upload: manifests
+      artifact: manifests
+
+- stage: Deploy
+  displayName: Deploy stage
+  dependsOn: Build
+  condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+
+  jobs:
+  - job: Deploy
+    displayName: Deploy
+    pool:
+      name: linuxagent  # Cambiar a 'linuxagent' o el nombre correcto de tu pool
+    steps:
+    - script: |
+        sudo apt-get update
+        sudo apt-get install -y git
+      displayName: Install Git
+
+    - script: |
+        git clone https://$(GITHUB_TOKEN)@github.com/PaulaTrujillo27/kubernetes-files-ecommerce.git
+        cd kubernetes-files-ecommerce
+        sed -i 's/image: myldpacontainerregistry.azurecr.io\/ecommerce-store:.*/image: myldpacontainerregistry.azurecr.io\/ecommerce-admin:$(tag)/' ecommerce-general.yaml
+      displayName: Clone repository and update YAML
+
+    - task: AzureCLI@2
+      inputs:
+        azureSubscription: 'my-ldp-token'
+        scriptType: 'bash'
+        scriptLocation: 'inlineScript'
+        inlineScript: |
+          az aks get-credentials --resource-group my-ldp-Ecommerce-Company --name my-ldp-EcommerceCluster
+          kubectl apply -f kubernetes-files-ecommerce/ecommerce-general.yaml
+      displayName: Deploy to AKS
